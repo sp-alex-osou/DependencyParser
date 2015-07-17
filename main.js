@@ -6,9 +6,11 @@ var ROOT = "/Users/Aosou/Development/sp-mobile-MonsterCity/src/MonsterCity";
 var VALID_EXT = [ "cpp", "h", "hpp", "mm" ];
 
 // var EXCLUDE_FOLDER = [ "ios" ];
-var EXCLUDE_FOLDER = [ ];
+// var EXCLUDE_FOLDER = [ "android" ];
+var EXCLUDE_FOLDER = [];
 
 var numFiles = 0;
+var doubleFiles = [];
 
 function getFiles(folder, files) {
 	fs.readdirSync(folder).forEach(function(element) {
@@ -17,6 +19,7 @@ function getFiles(folder, files) {
 		if (fs.lstatSync(path).isDirectory()) {
 			if (EXCLUDE_FOLDER.indexOf(element) === -1) { getFiles(path, files); }
 		} else if (VALID_EXT.indexOf(element.split(".").pop()) !== -1) {
+			if (files[element]) { doubleFiles.push(element); }
 			files[element] = {
 				path: path,
 				filename: element,
@@ -70,12 +73,13 @@ for (var filename in files) {
 	parseFile(files[filename], files);
 }
 
+var stackoverflows = [];
+
 for (var filename in files) {
 	try {
 		calculateDependencies(files[filename], files[filename]);
 	} catch (e) {
-		process.stdout.write("\n");
-		console.log("stack overflow: " + filename);
+		stackoverflows.push(filename);
 	}
 
 	process.stdout.clearLine();
@@ -107,15 +111,51 @@ arrFiles.sort(function(a, b) { return a.numIncludedBy - b.numIncludedBy; })
 process.stdout.write("\n");
 
 arrFiles.forEach(function(element) {
-	if (element.numIncludedByHeader >= 0) {
+	if (element.numIncludedByHeader >= 1) {
 		console.log(element.numIncludes, element.numIncludedBy, element.numIncludedByHeader, element.filename);
 	}
 });
 
-var name = "GameData.h"
+if (stackoverflows.length > 0) {
+	console.log("---");
+	console.log("!!! STACK OVERFLOWS !!!");
+	console.log("---");
+
+	for (var i = 0; i < stackoverflows.length; ++i) {
+		console.log(stackoverflows[i]);
+	}
+}
+
+if (doubleFiles.length > 0) {
+	console.log("---");
+	console.log("!!! DOUBLE FILES !!!");
+	console.log("---");
+
+	for (var i = 0; i < doubleFiles.length; ++i) {
+		console.log(doubleFiles[i]);
+	}	
+}
+
+return;
+
+var name = "DataModelConstants.h"
+
+console.log("---");
+console.log(name);
+console.log("---");
+
+var arrDirectIncludedBy = [];
 
 for (var filename in files[name].directIncludedBy) {
 	if (filename.match(/.*\.h(pp)?/) && files[filename].numIncludedBy > -1) { 
-		console.log(files[filename].numIncludedBy + " " + filename); 
+		arrDirectIncludedBy.push(filename);
 	}
 }
+
+arrDirectIncludedBy.sort(function(filenameA, filenameB) { return files[filenameA].numIncludedBy - files[filenameB].numIncludedBy; });
+
+for (var i = 0; i < arrDirectIncludedBy.length; ++i) {
+	var filename = arrDirectIncludedBy[i];
+	console.log(files[filename].numIncludedBy + " " + filename); 
+}
+
